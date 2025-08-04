@@ -1,0 +1,1 @@
+EMAIL_PASSWORD = "rjme yufp jfaz ynqt"  # Пароль приложения для почты
