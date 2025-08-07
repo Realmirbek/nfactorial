@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import smtplib
@@ -26,6 +26,18 @@ EMAIL_PASSWORD = "yhbb ipdm shsh ynbx"  # Пароль приложения
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+
+
+import os
+
+@app.get("/{full_path:path}")
+async def catch_all(full_path: str):
+    index_path = os.path.join("static", "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"detail": "Not Found"}
 
 
 @app.post("/send-contact")
