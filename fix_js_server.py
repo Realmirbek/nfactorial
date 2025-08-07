@@ -1,28 +1,28 @@
-from pathlib import Path
+import os
 import re
 
-# Путь до index.html (в твоём случае templates/index.html)
-file_path = Path("templates/index.html")
+# Папка, где лежат твои HTML-файлы (замени при необходимости)
+TARGET_DIR = "templates"
 
-if not file_path.exists():
-    print("❌ Файл index.html не найден!")
-    exit()
+OLD_EMAIL = "mamytalievmirbek2008@gmail.com"
+NEW_EMAIL = "profidata.tech@gmail.com"
 
-# Прочитать файл
-content = file_path.read_text(encoding="utf-8")
+def replace_email_in_file(filepath):
+    with open(filepath, "r", encoding="utf-8") as file:
+        content = file.read()
 
-# Заменить все внешние fetch-запросы на локальный маршрут
-# Например: fetch("https://test.nfactorial.school/api/websiteForm" → fetch("/send-contact"
-updated_content = re.sub(
-    r'fetch\(["\']https://[^"\']+/api/websiteForm["\']',
-    'fetch("/send-contact"',
-    content
-)
+    # Заменяем email
+    new_content = content.replace(OLD_EMAIL, NEW_EMAIL)
 
-# Сохранить файл
-file_path.write_text(updated_content, encoding="utf-8")
-print("✅ Ссылка сервера успешно заменена на локальный маршрут /send-contact")
+    if content != new_content:
+        with open(filepath, "w", encoding="utf-8") as file:
+            file.write(new_content)
+        print(f"✅ Заменено в: {filepath}")
+    else:
+        print(f"⚠️ Ничего не найдено в: {filepath}")
 
-
-
-#4177490182956583
+# Проход по всем HTML-файлам в папке рекурсивно
+for root, _, files in os.walk(TARGET_DIR):
+    for name in files:
+        if name.endswith(".html"):
+            replace_email_in_file(os.path.join(root, name))
