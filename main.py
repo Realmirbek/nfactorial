@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import smtplib
@@ -8,62 +8,96 @@ import logging
 
 app = FastAPI()
 
-# Логирование
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Папки
+# Статические файлы и шаблоны
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# 📧 SMTP конфигурация — новый аккаунт
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 EMAIL_FROM = "profidata.tech@gmail.com"
 EMAIL_TO = "profidata.tech@gmail.com"
-EMAIL_PASSWORD = "yhbb ipdm shsh ynbx"  # Пароль приложения
+EMAIL_PASSWORD = "yhbb ipdm shsh ynbx"  # пароль приложения
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-
+@app.get("/static/{file_path:path}")
+async def debug_static(file_path: str):
+    print(f"Запрошен файл: {file_path}")  # Увидишь какие файлы ищет фронтенд
+    return FileResponse(f"static/{file_path}")
 
 
 import os
+from pathlib import Path
 
-@app.get("/{full_path:path}")
-async def catch_all(full_path: str):
-    index_path = os.path.join("static", "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return {"detail": "Not Found"}
+
+def fix_static_files():
+    static_dir = Path("static")
+
+    # Создаем словарь для соответствия базовых имен (без хэшей)
+    name_mapping = {
+        "chunk-4FZPUS4R": "chunk-",
+        "p7r50UIhH99jKK4nNgJ4kde4pGs5G": "p7r50UIhH",
+        "script_main": "script_main"
+    }
+
+    for file in static_dir.glob("*.*"):
+        # Ищем файлы по частичному соответствию
+        for pattern, new_prefix in name_mapping.items():
+            if pattern in file.name:
+                new_name = file.name.replace(file.name.split(".")[0],
+                                             new_prefix + file.name.split(".")[0][len(new_prefix):])
+                file.rename(static_dir / new_name)
+                break
+
+
+fix_static_files()
+
+
 
 
 @app.post("/send-contact")
-async def send_contact(request: Request, name: str = Form(...), phone: str = Form(...), message: str = Form("")):
+async def send_contact(
+    name: str = Form(...),
+    phone: str = Form(...),
+    message: str = Form(""),
+    utm_source: str = Form(""),
+    utm_medium: str = Form(""),
+    utm_campaign: str = Form(""),
+    utm_term: str = Form(""),
+    utm_content: str = Form("")
+):
     try:
         logger.info(f"Получена заявка: {name}, {phone}")
 
-        # Валидация номера
+        # Проверка телефона
         if not phone.startswith("+7") or len(phone) != 12 or not phone[2:].isdigit():
             return RedirectResponse(url="/?error=Неверный формат номера", status_code=303)
 
-        # Текст письма
         email_body = f"""
-        Новая заявка:
+Новая заявка:
 
-        Имя: {name}
-        Телефон: {phone}
-        Сообщение: {message or '—'}
-        """
+Имя: {name}
+Телефон: {phone}
+Сообщение: {message or '—'}
+
+UTM-метки:
+utm_source: {utm_source}
+utm_medium: {utm_medium}
+utm_campaign: {utm_campaign}
+utm_term: {utm_term}
+utm_content: {utm_content}
+"""
 
         msg = MIMEText(email_body)
         msg["Subject"] = f"Заявка от {name}"
         msg["From"] = EMAIL_FROM
         msg["To"] = EMAIL_TO
 
-        # Отправка
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(EMAIL_FROM, EMAIL_PASSWORD)
@@ -74,6 +108,9 @@ async def send_contact(request: Request, name: str = Form(...), phone: str = For
     except Exception as e:
         logger.error(f"Ошибка отправки: {e}")
         return RedirectResponse(url="/?error=Ошибка сервера", status_code=303)
+
+
+
 
 if __name__ == "__main__":
     import uvicorn
